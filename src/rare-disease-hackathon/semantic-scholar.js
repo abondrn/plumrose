@@ -74,21 +74,35 @@ async function paperRecommendations(pos, neg = [], params) {
 }
 
 
-async function ESearch(params) {
-    const response = await axios.get('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi', {
+class EntrezError extends Error {
+    constructor(response) {
+        super(response.data); // Call the parent class constructor with the message
+        this.response = response;
+        this.name = this.constructor.name; // Set the error name to the class name
+        Error.captureStackTrace(this, this.constructor); // Create a stack trace for the error
+    }
+}
+
+
+async function EntrezRequest(endpoint, params) {
+    const response = await axios.get(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/${endpoint}.fcgi`, {
         params,
     });
 
+    if (typeof response.data === 'string' && response.data.includes('<error>')) {
+        throw new EntrezError(response);
+    }
     return response.data;
+}
+
+
+async function ESearch(params) {
+    return await EntrezRequest('esearch', params);
 }
 
 async function EFetch(params) {
-    const response = await axios.get('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi', {
-        params,
-    });
-
-    return response.data;
+    return await EntrezRequest('efetch', params);
 }
 
 
-module.exports = { multiplePaperDetails, paperBulkSearch, paperDetails, paperRecommendations, paperRelevanceSearch, ESearch, EFetch };
+module.exports = { multiplePaperDetails, paperBulkSearch, paperDetails, paperRecommendations, paperRelevanceSearch, ESearch, EFetch, EntrezError };

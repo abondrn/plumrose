@@ -2,9 +2,72 @@ const crypto = require('crypto');
 const zlib = require('zlib');
 const { createWriteStream, createReadStream } = require('fs');
 const fs = require('fs').promises;
+const path = require('path');
 
 const unzipper = require('unzipper');
+const yaml = require('js-yaml');
 
+async function readYamlFile(filePath) {
+    const fileData = await fs.readFile(filePath, 'utf-8');
+    return yaml.load(fileData);
+}
+
+// Function to read JSON data from a file asynchronously
+async function readJsonFile(filePath, defaultData = {}) {
+    try {
+      const fileData = await fs.readFile(filePath, 'utf-8');
+      return JSON.parse(fileData);
+    } catch (error) {
+      // error as NodeJs.ErrnoException
+      if (error.code === 'ENOENT' || error instanceof SyntaxError) {
+        // File doesn't exist, return the default data
+        return defaultData;
+      }
+      // Handle other errors
+      throw error;
+    }
+}
+  
+  // Function to write JSON data to a file asynchronously
+async function writeJsonFile(filePath, jsonData) {
+    const jsonString = JSON.stringify(jsonData, null, 2); // 2 spaces for indentation
+  
+    await fs.writeFile(filePath, jsonString, 'utf-8');
+}
+
+
+// TODO: implement rule to only run if stale (older than inputs)
+async function modifyJsonFile(filePath, transform, initial) {
+    const tempFilePath = path.join(path.dirname(filePath), path.basename(filePath)+'.tmp');
+
+    try {
+        // Load the contents from the specified path
+        let data;
+        if (await fileUtils.fileExists(filePath)) {
+            data = await JSON.readJsonFile(filePath);
+        } else {
+            data = await initial();
+        }
+
+        // Apply the transform function to the contents
+        const transformedData = await transform(data);
+
+        // Write the transformed contents to a temporary file
+        await writeJsonFile(tempFilePath, transformedData);
+
+        // Replace the original file with the temporary file
+        await fs.rename(tempFilePath, filePath);
+
+        console.log(`Successfully wrote transformed data to ${filePath}`);
+    } catch (error) {
+        // Clean up the temporary file in case of error
+        await fs.unlink(tempFilePath).catch(() => {});
+        throw error;
+    }
+}
+
+
+// TODO fix progress
 /**
  * Unzips a file to the given destination directory, defaulting to the directory containing the zip file.
  * @param {string} zipFilePath - The path to the zip file.
@@ -178,4 +241,4 @@ async function deleteIfExists(filePath) {
 }
 
 
-module.exports = { deleteIfExists, calculateFileHash, gunzipFile, unzipFile };
+module.exports = { deleteIfExists, calculateFileHash, gunzipFile, unzipFile, fileExists, readJsonFile, modifyJsonFile, writeJsonFile };

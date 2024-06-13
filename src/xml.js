@@ -32,7 +32,7 @@ function xmlToJson(node, dropWhitespace = false) {
         obj.tag = 'comment';
         obj.elem.push(node.nodeValue);
     } else {
-        console.log(node.nodeType);
+        //console.log(node.nodeType);
         return node;
     }
 
