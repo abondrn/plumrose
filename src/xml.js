@@ -11,6 +11,34 @@ function dumpXml(doc) {
 }
 
 
+function condenseJson(json, exceptFor) {
+    if (json.elem === undefined) return json;
+    if (exceptFor !== undefined && exceptFor.includes(json.tag)) return json;
+    let map = { ...json.attr };
+    for (const sub of json.elem) {
+        if (sub.tag === undefined) {
+            map.value = map.value || [];
+            map.value.push(sub);
+            continue;
+        };
+        if (map[sub.tag] === undefined) {
+            map[sub.tag] = [];
+        }
+        const condensed = condenseJson(sub, exceptFor);
+        map[sub.tag].push(condensed[sub.tag] || condensed);
+    }
+    if (Object.keys(map).length === 1 && 'value' in map) {
+        map = map.value;
+        if (map.length === 1) {
+            map = map[0];
+        }
+    }
+    return {
+        [json.tag]: map
+    };
+}
+
+
 // TODO: support entities
 function xmlToJson(node, dropWhitespace = false) {
     // If the node is a text node, return its text content
@@ -99,4 +127,5 @@ function read(src) {
     return xmlToJson(parseXml(src).documentElement);
 }
 
-module.exports = { read };
+
+module.exports = { read, condenseJson };

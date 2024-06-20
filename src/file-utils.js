@@ -12,6 +12,12 @@ async function readYamlFile(filePath) {
     return yaml.load(fileData);
 }
 
+
+async function writeYamlFile(filePath, object, options) {
+    await fs.writeFile(filePath,  yaml.dump(object, options));
+}
+
+
 // Function to read JSON data from a file asynchronously
 async function readJsonFile(filePath, defaultData = {}) {
     try {
@@ -241,4 +247,90 @@ async function deleteIfExists(filePath) {
 }
 
 
-module.exports = { deleteIfExists, calculateFileHash, gunzipFile, unzipFile, fileExists, readJsonFile, modifyJsonFile, writeJsonFile };
+async function getObjectType(filePath) {
+    try {
+        // Get information about the file or directory at the given path
+        const stats = await fs.stat(filePath);
+
+        // Check the type of the object
+        if (stats.isFile()) {
+            return 'file';
+        } else if (stats.isDirectory()) {
+            return 'directory';
+        } else if (stats.isSymbolicLink()) {
+            return 'symlink';
+        } else {
+            return 'unknown'; // Other types (e.g., device, socket, etc.)
+        }
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return 'not found'; // Path does not exist
+        } else {
+            throw error; // Re-throw other errors
+        }
+    }
+}
+
+// Check if a file exists
+async function fileExists(filePath) {
+    return await getObjectType(filePath) === "file";
+}
+
+async function getHash(filePath) {
+    const type = await getObjectType(filePath);
+    switch (type) {
+        case 'file': return getFileHash(filePath);
+        case 'symlink': return getSymlinkHash(filePath);
+        default:
+            throw Error(`Tried to hash ${type} ${filePath}`);
+    }
+}
+
+// Calculate the MD5 hash of a file's contents
+async function getFileHash(filePath) {
+    const fileData = await fs.readFile(filePath);
+    return crypto.createHash('md5').update(fileData).digest('hex');
+}
+
+async function getSymlinkHash(filePath) {
+    const target = await fs.readlink(filePath);
+    return crypto.createHash('md5').update(target).digest('hex');
+}
+
+
+// Async generator function to recursively yield all files in a directory
+async function* getAllFiles(dir) {
+    try {
+        const items = await fs.readdir(dir, { withFileTypes: true });
+        for (const item of items) {
+            const itemPath = path.join(dir, item.name);
+            if (item.isDirectory()) {
+                yield* getAllFiles(itemPath); // Recursively yield files in subdirectories
+            } else {
+                yield itemPath;
+            }
+        }
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return; // Return an empty array if directory does not exist
+        } else {
+            throw error; // Re-throw other errors
+        }
+    }
+}
+
+
+async function safeReaddir(dir) {
+    try {
+        return await fs.readdir(dir, { withFileTypes: true });
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return []; // Return an empty array if directory does not exist
+        } else {
+            throw error; // Re-throw other errors
+        }
+    }
+}
+
+
+module.exports = { deleteIfExists, calculateFileHash, gunzipFile, unzipFile, fileExists, readJsonFile, modifyJsonFile, writeJsonFile, safeReaddir, readYamlFile, writeYamlFile };

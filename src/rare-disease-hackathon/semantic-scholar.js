@@ -105,4 +105,63 @@ async function EFetch(params) {
 }
 
 
-module.exports = { multiplePaperDetails, paperBulkSearch, paperDetails, paperRecommendations, paperRelevanceSearch, ESearch, EFetch, EntrezError };
+async function getHPO(endpoint, params) {
+    const r = await axios.get(`https://ontology.jax.org/api/hp/${endpoint}`, {
+        responseType: 'json',
+        params,
+    });
+    return r.data;
+}
+
+
+async function getChEMBL(entity, params) {
+    const r = await axios.get(`https://www.ebi.ac.uk/chembl/api/data/${entity}.json`, {
+        responseType: 'json',
+        params,
+    });
+    return r.data;
+}
+
+
+// https://id.nlm.nih.gov/mesh/swagger/ui#/sparql/sparqlQuery
+async function meshSPARQL(query) {
+    const r = await axios.get('https://id.nlm.nih.gov/mesh/sparql', {
+        headers: {
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        },
+        params: {
+            query: query,
+            format: 'JSON',
+            limit: 100,
+            offset: 0,
+            inference: false,
+        },
+        paramsSerializer: (params) => Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&'),
+    });
+    console.log(r);
+    return r.data;
+}
+
+
+async function pushPullReddit(endpoint, params) {
+    const r = await axios.get(`https://api.pullpush.io/reddit/search/${endpoint}/`, {
+        responseType: 'json',
+        params,
+    });
+    return r.data;
+}
+
+
+async function clinicalTrials(endpoint, params) {
+    const r = await axios.get(`https://clinicaltrials.gov/api/v2/${endpoint}`, {
+        responseType: 'json',
+        params,
+    });
+    return r.data;
+}
+
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+
+module.exports = { sleep, multiplePaperDetails, paperBulkSearch, paperDetails, paperRecommendations, paperRelevanceSearch, ESearch, EFetch, EntrezError, getChEMBL, getHPO, meshSPARQL, pushPullReddit, clinicalTrials };

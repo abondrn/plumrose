@@ -1,6 +1,12 @@
+const fs = require('fs');
+const axios = require('axios');
+
+const progressStream = require('progress-stream');
 const progress = require('cli-progress');
 
 
+// TODO make pbar configurable
+// TODO allow disabling of progress
 function* range(start, stop, step = 1, pbar) {
     let current = start;
     const totalSteps = Math.floor((stop - start) / step) + 1;
@@ -158,42 +164,31 @@ async function asyncForEach(array, callback) {
 }
 
 
-async function asyncFind(array, callback) {
+// TODO drop some all/while
+async function asyncTake(array, first, callback) {
     const progressBar = new progress.SingleBar({}, progress.Presets.shades_classic);
-    progressBar.start(array.length, 0);
+    progressBar.start(first, 0);
 
+    let n = 0;
+    let matches = [];
     for (let index = 0; index < array.length; index++) {
         const result = callback(array[index], index, array);
         if (result instanceof Promise ? await result : result) {
-            progressBar.stop();
-            return array[index];
+            matches.push(array[index]);
+            n++;
+            progressBar.update(n);
+            if (n == first) {
+                break;
+            }
         }
-        progressBar.update(index + 1);
     }
 
     progressBar.stop();
-    return undefined;
+    return [matches, array.slice(index+1)];
 }
 
 
-async function asyncSome(array, callback) {
-    const progressBar = new progress.SingleBar({}, progress.Presets.shades_classic);
-    progressBar.start(array.length, 0);
-
-    for (let index = 0; index < array.length; index++) {
-        const result = callback(array[index], index, array);
-        if (result instanceof Promise ? await result : result) {
-            progressBar.stop();
-            return true;
-        }
-        progressBar.update(index + 1);
-    }
-
-    progressBar.stop();
-    return false;
-}
-
-
+// TODO flatMap
 async function* flatten(array, iterableGenerator) {
     const progressBar = new progress.SingleBar({}, progress.Presets.shades_classic);
     progressBar.start(array.length, 0);
@@ -210,4 +205,66 @@ async function* flatten(array, iterableGenerator) {
 }
 
 
-module.exports = { range, enumerate, zip, product, batch, concat, asyncMap, asyncReduce, asyncForEach, asyncFind, asyncSome, flatten };
+
+/**
+ * Creates a file read stream that keeps track of progress.
+ * @param {string} filePath - Path to the file to read.
+ * @returns {Promise<ReadableStream>} - The read stream with progress tracking.
+ */
+async function fileStream(filePath) {
+    const fileStat = await fs.promises.stat(filePath);
+    const progressBar = new progress.SingleBar({}, progress.Presets.shades_classic);
+
+    const ps = progressStream({
+        length: fileStat.size,
+        //time: 100 /* ms */
+    });
+
+    ps.on('progress', (progress) => {
+        progressBar.update(progress.percentage);
+    });
+
+    ps.on('end', () => {
+        progressBar.stop();
+    });
+
+    progressBar.start(100, 0);
+
+    const readStream = fs.createReadStream(filePath);
+
+    return readStream.pipe(ps);
+}
+
+/**
+ * Creates a stream to the contents of a GET request, tracking the download progress.
+ * @param {string} url - URL to send the GET request to.
+ * @returns {Promise<ReadableStream>} - The read stream with progress tracking.
+ */
+async function requestStream(args) {
+    const { data, headers } = await axios({
+        ...args,
+        responseType: 'stream'
+    });
+
+    const progressBar = new progress.SingleBar({}, progress.Presets.shades_classic);
+
+    const ps = progressStream({
+        length: headers['content-length'],
+        time: 100 /* ms */
+    });
+
+    ps.on('progress', (progress) => {
+        progressBar.update(progress.percentage);
+    });
+
+    ps.on('end', () => {
+        progressBar.stop();
+    });
+
+    progressBar.start(100, 0);
+
+    return data.pipe(ps);
+}
+
+
+module.exports = { range, enumerate, zip, product, batch, concat, asyncMap, asyncReduce, asyncForEach, flatten, fileStream, requestStream };
