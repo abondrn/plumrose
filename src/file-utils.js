@@ -333,4 +333,4 @@ async function safeReaddir(dir) {
 }
 
 
-module.exports = { deleteIfExists, calculateFileHash, gunzipFile, unzipFile, fileExists, readJsonFile, modifyJsonFile, writeJsonFile, safeReaddir, readYamlFile, writeYamlFile };
+module.exports = { deleteIfExists, calculateFileHash, gunzipFile, unzipFile, fileExists, readJsonFile, modifyJsonFile, writeJsonFile, safeReaddir, readYamlFile, writeYamlFile, getObjectType };

@@ -11,9 +11,22 @@ function dumpXml(doc) {
 }
 
 
+function find(json, selector) {
+    if (selector(json)) return json;
+    if (typeof json === 'string') return null;
+    for (const e of json.elem) {
+        let found = find(e, selector);
+        if (found) return found;
+    }
+    return null;
+}
+
+
 function condenseJson(json, exceptFor) {
-    if (json.elem === undefined) return json;
-    if (exceptFor !== undefined && exceptFor.includes(json.tag)) return json;
+    if (json.elem === undefined
+     || typeof json === 'string'
+     || exceptFor !== undefined && exceptFor.includes(json.tag))
+        return json;
     let map = { ...json.attr };
     for (const sub of json.elem) {
         if (sub.tag === undefined) {
@@ -128,4 +141,4 @@ function read(src) {
 }
 
 
-module.exports = { read, condenseJson };
+module.exports = { read, condenseJson, find };
